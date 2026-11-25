@@ -2,9 +2,9 @@
 
 <img src="web/public/logo.svg" width="84" alt="ARTEX logo" />
 
-# ARTEX
+# HEXART-AGI
 
-**Autonomous penetration testing that keeps its receipts.**
+**ARTEX agentic autonomy combined with the HexStrike offensive-tool ecosystem.**
 
 (upstream: [Autumn-27/ARTEX](https://github.com/Autumn-27), AGPL-3.0)
 
@@ -22,12 +22,17 @@ and every finding stays bound to the assets and HTTP traffic that prove it.
 
 ---
 
-ARTEX is a self-hosted, LLM-driven penetration testing platform. It is not a chat wrapper around
-a scanner: a planner splits a goal into intents, workers execute them with real tools, and the
-results are written back into **two linked graphs**: one for what you know about the target, one
-for how the test is progressing. Every finding can carry the captured request and response that
-justify it, and every autonomous action passes through scope rules, approval gates and budgets.
+HEXART-AGI is a self-hosted penetration testing platform that combines **ARTEX** and **HexStrike**
+into one agentic workflow. ARTEX provides the LLM planners, workers, dual-graph audit trail,
+evidence capture and safety gates; HexStrike contributes a broad offensive-tool ecosystem,
+including reconnaissance, web application, network, cloud and binary workflows exposed through MCP.
+A planner splits a goal into intents, workers execute them with real tools, and the results are
+written back into **two linked graphs**: one for what you know about the target, one for how the
+test is progressing. Every finding can carry the captured request and response that justifies it,
+and every autonomous action passes through scope rules, approval gates and budgets.
 
+- **Combined capability.** ARTEX orchestrates and records the assessment while HexStrike extends
+  its authorized agents with hundreds of specialized security tools and AI-assisted workflows.
 - **It explores, it doesn't chat.** Goal decomposition, intent dispatch, worker execution and
   write-back form a closed loop that keeps advancing until the goal is proven.
 - **Two graphs, one audit trail.** The shared asset graph says *what exists*; the per-task
@@ -44,8 +49,8 @@ justify it, and every autonomous action passes through scope rules, approval gat
 ## Quick start
 
 ```bash
-git clone https://github.com/BaaRai/ARTEX.git
-cd ARTEX
+git clone https://github.com/mb-eddie/HEXART-AGI.git
+cd HEXART-AGI
 cp .env.example .env            # set POSTGRES_PASSWORD (and optionally an LLM key)
 docker compose up -d --build    # builds from this checkout, starts PostgreSQL
 ```
@@ -347,7 +352,10 @@ Legacy SSE servers usually establish the event stream with `GET /sse` and receiv
 
 #### Local HexStrike MCP
 
-The Docker Compose deployment includes a local HexStrike API server and a Streamable HTTP MCP bridge:
+The Docker Compose deployment combines ARTEX's autonomous planning, evidence and approval system
+with a local HexStrike API server and Streamable HTTP MCP bridge. This gives authorized ARTEX
+agents direct access to the HexStrike tool ecosystem while preserving ARTEX's graph, scope and
+audit trail:
 
 - HexStrike API: `127.0.0.1:8888`
 - HexStrike MCP: `127.0.0.1:8890/mcp`
