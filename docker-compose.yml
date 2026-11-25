@@ -1,0 +1,109 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-artex}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Please set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-artex}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-artex} -d ${POSTGRES_DB:-artex}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  hexstrike:
+    image: artex:local             # uses your locally built image — same as artex
+    network_mode: host             # inherits tun0 → HTB/THM reach
+    entrypoint: ["python3", "/usr/share/hexstrike-ai/hexstrike_server.py"]
+    environment:
+      HEXSTRIKE_HOST: 0.0.0.0
+      HEXSTRIKE_PORT: 8888
+    command: ["--port", "8888"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - ./data:/app/data
+      - ./keys:/app/keys
+      - ./skills:/app/skills
+      - /usr/share/hexstrike-ai:/usr/share/hexstrike-ai:ro
+      - ./hexstrike-data:/app/hexstrike-data
+    working_dir: /app/hexstrike-data
+    restart: unless-stopped
+
+  hexstrike-mcp:
+    image: artex:local
+    network_mode: host
+    entrypoint: ["python3", "/app/hexstrike_mcp_http.py"]
+    depends_on:
+      hexstrike:
+        condition: service_healthy
+    environment:
+      HEXSTRIKE_SERVER_URL: http://127.0.0.1:8888
+      HEXSTRIKE_REQUEST_TIMEOUT: 300
+      HEXSTRIKE_MCP_HOST: 0.0.0.0
+      HEXSTRIKE_MCP_PORT: 8890
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8890/mcp | grep -Eq '^(200|400|406)$'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    volumes:
+      - /usr/share/hexstrike-ai:/usr/share/hexstrike-ai:ro
+      - ./scripts/hexstrike_mcp_http.py:/app/hexstrike_mcp_http.py:ro
+      - ./hexstrike-data:/app/hexstrike-data
+    working_dir: /app/hexstrike-data
+    restart: unless-stopped
+
+  artex:
+    build:
+      context: .
+      args:
+        ARTEX_VERSION: ${ARTEX_VERSION:-dev}
+    image: artex:local
+    depends_on:
+      postgres:
+        condition: service_healthy
+      hexstrike:
+        condition: service_healthy   # wait until hexstrike_server is confirmed up
+      hexstrike-mcp:
+        condition: service_healthy
+    environment:
+      ARTEX_PG_DSN: postgres://${POSTGRES_USER:-artex}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-artex}?sslmode=disable
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
+      ARTEX_LLM_PROVIDER: ${ARTEX_LLM_PROVIDER:-}
+      ARTEX_LLM_MODEL: ${ARTEX_LLM_MODEL:-}
+      ARTEX_LLM_BASE_URL: ${ARTEX_LLM_BASE_URL:-}
+      ARTEX_LLM_PROXY: ${ARTEX_LLM_PROXY:-}
+      ARTEX_JWT_KEY_DIR: /app/keys
+      ARTEX_SECRET_KEY: ${ARTEX_SECRET_KEY:-}
+      ARTEX_TRUSTED_PROXIES: ${ARTEX_TRUSTED_PROXIES:-}
+      ARTEX_UNTRUSTED_BOUNDARY: ${ARTEX_UNTRUSTED_BOUNDARY:-}
+      ARTEX_UPDATE_CHECK: ${ARTEX_UPDATE_CHECK:-}
+      ARTEX_NOISE_PROFILE: ${ARTEX_NOISE_PROFILE:-}
+      ARTEX_TARGET_USER_AGENT: ${ARTEX_TARGET_USER_AGENT:-}
+      ARTEX_TASK_BUDGET_TOKENS: ${ARTEX_TASK_BUDGET_TOKENS:-}
+      ARTEX_TASK_BUDGET_TURNS: ${ARTEX_TASK_BUDGET_TURNS:-}
+      ARTEX_INTENT_BUDGET_TOKENS: ${ARTEX_INTENT_BUDGET_TOKENS:-}
+      ARTEX_INTENT_BUDGET_TURNS: ${ARTEX_INTENT_BUDGET_TURNS:-}
+    ports:
+      - "${ARTEX_BIND_ADDR:-127.0.0.1}:8787:8787"
+      - "127.0.0.1:8788:8788"
+    volumes:
+      - ./data:/app/data
+      - ./keys:/app/keys
+      - ./skills:/app/skills
+    extra_hosts:
+       - "host.docker.internal:172.17.0.1"  # lets artex reach hexstrike_server on host network
+    restart: unless-stopped
+
+volumes:
+  pgdata:
